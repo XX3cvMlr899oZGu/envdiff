@@ -1,16 +1,18 @@
 package diff
 
-// Status describes the relationship of a key between two env files.
-type Status int
+import "sort"
+
+// Status represents the comparison result for a single key.
+type Status string
 
 const (
-	StatusEqual      Status = iota
-	StatusMissingInA        // key exists in B but not A
-	StatusMissingInB        // key exists in A but not B
-	StatusMismatch          // key exists in both but values differ
+	StatusEqual    Status = "equal"
+	StatusMissing  Status = "missing"
+	StatusExtra    Status = "extra"
+	StatusMismatch Status = "mismatch"
 )
 
-// Result holds the comparison outcome for a single key.
+// Result holds the comparison outcome for a single environment key.
 type Result struct {
 	Key    string
 	Status Status
@@ -18,25 +20,38 @@ type Result struct {
 	ValueB string
 }
 
-// Compare compares two maps of env key/value pairs and returns a slice of Results.
+// Compare compares two env maps and returns a sorted slice of Results.
 func Compare(a, b map[string]string) []Result {
-	var results []Result
-
-	for k, va := range a {
-		if vb, ok := b[k]; !ok {
-			results = append(results, Result{Key: k, Status: StatusMissingInB, ValueA: va})
-		} else if va != vb {
-			results = append(results, Result{Key: k, Status: StatusMismatch, ValueA: va, ValueB: vb})
-		} else {
-			results = append(results, Result{Key: k, Status: StatusEqual, ValueA: va, ValueB: vb})
-		}
+	keys := make(map[string]struct{})
+	for k := range a {
+		keys[k] = struct{}{}
+	}
+	for k := range b {
+		keys[k] = struct{}{}
 	}
 
-	for k, vb := range b {
-		if _, ok := a[k]; !ok {
-			results = append(results, Result{Key: k, Status: StatusMissingInA, ValueB: vb})
+	results := make([]Result, 0, len(keys))
+	for k := range keys {
+		va, inA := a[k]
+		vb, inB := b[k]
+
+		var status Status
+		switch {
+		case inA && !inB:
+			status = StatusMissing
+		case !inA && inB:
+			status = StatusExtra
+		case va == vb:
+			status = StatusEqual
+		default:
+			status = StatusMismatch
 		}
+
+		results = append(results, Result{Key: k, Status: status, ValueA: va, ValueB: vb})
 	}
 
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].Key < results[j].Key
+	})
 	return results
 }
