@@ -89,3 +89,14 @@ func TestResolve_InvalidMaxDepth(t *testing.T) {
 		t.Error("expected error for MaxDepth=0, got nil")
 	}
 }
+
+func TestResolve_CircularReference(t *testing.T) {
+	env := map[string]string{
+		"A": "${B}",
+		"B": "${A}",
+	}
+	_, err := resolve.Resolve(env, resolve.DefaultOptions())
+	if err == nil {
+		t.Error("expected error for circular reference, got nil")
+	}
+}
