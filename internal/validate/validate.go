@@ -70,3 +70,13 @@ func FormatViolations(violations []Violation) string {
 	}
 	return strings.TrimRight(sb.String(), "\n")
 }
+
+// HasViolations returns true if any of the provided violations match the given key.
+func HasViolations(violations []Violation, key string) bool {
+	for _, v := range violations {
+		if v.Key == key {
+			return true
+		}
+	}
+	return false
+}
