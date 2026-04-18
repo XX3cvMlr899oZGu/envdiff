@@ -69,6 +69,21 @@ func TestApply_ConflictReturnsError(t *testing.T) {
 	}
 }
 
+// TestApply_MapPreservesValue ensures that the value associated with a renamed
+// key is carried over unchanged to the new key.
+func TestApply_MapPreservesValue(t *testing.T) {
+	env := map[string]string{"OLD": "secret"}
+	opts := DefaultOptions()
+	opts.Map["OLD"] = "NEW"
+	res, err := Apply(env, opts)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.Env["NEW"] != "secret" {
+		t.Errorf("expected NEW=secret, got %q", res.Env["NEW"])
+	}
+}
+
 func TestFormatChanges_NoChanges(t *testing.T) {
 	out := FormatChanges(nil)
 	if !strings.Contains(out, "no keys renamed") {
