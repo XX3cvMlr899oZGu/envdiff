@@ -1,5 +1,5 @@
-// Package envcheck provides rule-based validation checks against an env map.
-// Rules can require keys to be present, forbid keys, or enforce non-empty values.
+// Package envcheck provides rule-based validation of environment variable maps.
+// It supports required keys, forbidden keys, and non-empty value constraints.
 package envcheck
 
 import (
@@ -7,38 +7,39 @@ import (
 	"strings"
 )
 
-// RuleKind defines the type of check to perform.
-type RuleKind string
+// RuleType defines the kind of constraint to enforce.
+type RuleType string
 
 const (
-	RuleRequired RuleKind = "required"
-	RuleForbidden RuleKind = "forbidden"
-	RuleNonEmpty  RuleKind = "non_empty"
+	RuleRequired RuleType = "required"
+	RuleForbidden RuleType = "forbidden"
+	RuleNonEmpty  RuleType = "non_empty"
 )
 
-// Rule describes a single check against an env map.
+// Rule describes a single constraint applied to an env map.
 type Rule struct {
 	Key  string
-	Kind RuleKind
+	Type RuleType
 }
 
-// Violation represents a failed rule check.
+// Violation records a rule that was not satisfied.
 type Violation struct {
 	Key     string
-	Kind    RuleKind
+	Rule    RuleType
 	Message string
 }
 
-// Check applies the given rules to env and returns any violations.
+// Check evaluates a set of rules against the provided env map and returns
+// any violations found.
 func Check(env map[string]string, rules []Rule) []Violation {
 	var violations []Violation
 	for _, r := range rules {
-		switch r.Kind {
+		switch r.Type {
 		case RuleRequired:
 			if _, ok := env[r.Key]; !ok {
 				violations = append(violations, Violation{
 					Key:     r.Key,
-					Kind:    r.Kind,
+					Rule:    r.Type,
 					Message: fmt.Sprintf("required key %q is missing", r.Key),
 				})
 			}
@@ -46,16 +47,15 @@ func Check(env map[string]string, rules []Rule) []Violation {
 			if _, ok := env[r.Key]; ok {
 				violations = append(violations, Violation{
 					Key:     r.Key,
-					Kind:    r.Kind,
+					Rule:    r.Type,
 					Message: fmt.Sprintf("forbidden key %q is present", r.Key),
 				})
 			}
 		case RuleNonEmpty:
-			val, ok := env[r.Key]
-			if ok && strings.TrimSpace(val) == "" {
+			if v, ok := env[r.Key]; ok && strings.TrimSpace(v) == "" {
 				violations = append(violations, Violation{
 					Key:     r.Key,
-					Kind:    r.Kind,
+					Rule:    r.Type,
 					Message: fmt.Sprintf("key %q must not be empty", r.Key),
 				})
 			}
@@ -64,19 +64,19 @@ func Check(env map[string]string, rules []Rule) []Violation {
 	return violations
 }
 
-// HasViolations returns true if any violations are present.
-func HasViolations(violations []Violation) bool {
-	return len(violations) > 0
+// HasViolations returns true if the slice contains at least one violation.
+func HasViolations(vs []Violation) bool {
+	return len(vs) > 0
 }
 
-// FormatViolations returns a human-readable summary of violations.
-func FormatViolations(violations []Violation) string {
-	if len(violations) == 0 {
-		return "no violations found"
+// FormatViolations returns a human-readable summary of all violations.
+func FormatViolations(vs []Violation) string {
+	if len(vs) == 0 {
+		return "no violations"
 	}
-	var sb strings.Builder
-	for _, v := range violations {
-		sb.WriteString(fmt.Sprintf("[%s] %s\n", v.Kind, v.Message))
+	lines := make([]string, len(vs))
+	for i, v := range vs {
+		lines[i] = fmt.Sprintf("[%s] %s", v.Rule, v.Message)
 	}
-	return strings.TrimRight(sb.String(), "\n")
+	return strings.Join(lines, "\n")
 }
