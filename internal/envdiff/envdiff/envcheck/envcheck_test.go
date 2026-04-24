@@ -4,77 +4,70 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/your-org/envdiff/internal/envdiff/envdiff/envcheck"
+	"github.com/yourorg/envdiff/internal/envdiff/envdiff/envcheck"
 )
 
-var sampleEnv = map[string]string{
-	"APP_NAME":  "myapp",
-	"APP_PORT":  "8080",
-	"DEBUG":     "",
-	"SECRET_KEY": "abc123",
-}
-
 func TestCheck_NoViolations(t *testing.T) {
+	env := map[string]string{"HOST": "localhost", "PORT": "8080"}
 	rules := []envcheck.Rule{
-		{Key: "APP_NAME", Required: true, NonEmpty: true},
-		{Key: "APP_PORT", Required: true},
+		{Key: "HOST", Kind: envcheck.RuleRequired},
+		{Key: "PORT", Kind: envcheck.RuleNonEmpty},
 	}
-	violations := envcheck.Check(sampleEnv, rules)
-	if len(violations) != 0 {
-		t.Fatalf("expected no violations, got %d: %v", len(violations), violations)
+	got := envcheck.Check(env, rules)
+	if len(got) != 0 {
+		t.Errorf("expected no violations, got %d", len(got))
 	}
 }
 
 func TestCheck_RequiredKeyMissing(t *testing.T) {
+	env := map[string]string{"PORT": "8080"}
 	rules := []envcheck.Rule{
-		{Key: "DATABASE_URL", Required: true},
+		{Key: "HOST", Kind: envcheck.RuleRequired},
 	}
-	violations := envcheck.Check(sampleEnv, rules)
-	if len(violations) != 1 {
-		t.Fatalf("expected 1 violation, got %d", len(violations))
+	got := envcheck.Check(env, rules)
+	if len(got) != 1 {
+		t.Fatalf("expected 1 violation, got %d", len(got))
 	}
-	if violations[0].Key != "DATABASE_URL" {
-		t.Errorf("unexpected key: %s", violations[0].Key)
+	if got[0].Key != "HOST" {
+		t.Errorf("expected violation for HOST, got %s", got[0].Key)
 	}
 }
 
 func TestCheck_ForbiddenKeyPresent(t *testing.T) {
+	env := map[string]string{"DEBUG": "true"}
 	rules := []envcheck.Rule{
-		{Key: "SECRET_KEY", Forbidden: true},
+		{Key: "DEBUG", Kind: envcheck.RuleForbidden},
 	}
-	violations := envcheck.Check(sampleEnv, rules)
-	if len(violations) != 1 {
-		t.Fatalf("expected 1 violation, got %d", len(violations))
+	got := envcheck.Check(env, rules)
+	if len(got) != 1 {
+		t.Fatalf("expected 1 violation, got %d", len(got))
 	}
-	if !strings.Contains(violations[0].Message, "forbidden") {
-		t.Errorf("expected 'forbidden' in message, got: %s", violations[0].Message)
+	if got[0].Kind != envcheck.RuleForbidden {
+		t.Errorf("expected forbidden kind, got %s", got[0].Kind)
 	}
 }
 
 func TestCheck_NonEmptyViolation(t *testing.T) {
+	env := map[string]string{"SECRET": "   "}
 	rules := []envcheck.Rule{
-		{Key: "DEBUG", NonEmpty: true},
+		{Key: "SECRET", Kind: envcheck.RuleNonEmpty},
 	}
-	violations := envcheck.Check(sampleEnv, rules)
-	if len(violations) != 1 {
-		t.Fatalf("expected 1 violation, got %d", len(violations))
-	}
-	if !strings.Contains(violations[0].Message, "empty") {
-		t.Errorf("expected 'empty' in message, got: %s", violations[0].Message)
+	got := envcheck.Check(env, rules)
+	if len(got) != 1 {
+		t.Fatalf("expected 1 violation, got %d", len(got))
 	}
 }
 
 func TestHasViolations_True(t *testing.T) {
-	rules := []envcheck.Rule{{Key: "MISSING", Required: true}}
-	if !envcheck.HasViolations(sampleEnv, rules) {
+	v := []envcheck.Violation{{Key: "X", Kind: envcheck.RuleRequired, Message: "missing"}}
+	if !envcheck.HasViolations(v) {
 		t.Error("expected HasViolations to return true")
 	}
 }
 
 func TestHasViolations_False(t *testing.T) {
-	rules := []envcheck.Rule{{Key: "APP_NAME", Required: true}}
-	if envcheck.HasViolations(sampleEnv, rules) {
-		t.Error("expected HasViolations to return false")
+	if envcheck.HasViolations(nil) {
+		t.Error("expected HasViolations to return false for nil")
 	}
 }
 
@@ -85,15 +78,15 @@ func TestFormatViolations_NoViolations(t *testing.T) {
 	}
 }
 
-func TestFormatViolations_WithViolations(t *testing.T) {
+func TestFormatViolations_ContainsKind(t *testing.T) {
 	v := []envcheck.Violation{
-		{Key: "FOO", Message: "required key is missing"},
+		{Key: "HOST", Kind: envcheck.RuleRequired, Message: "required key \"HOST\" is missing"},
 	}
 	out := envcheck.FormatViolations(v)
-	if !strings.Contains(out, "FOO") {
-		t.Errorf("expected key FOO in output, got: %s", out)
+	if !strings.Contains(out, "[required]") {
+		t.Errorf("expected output to contain '[required]', got: %s", out)
 	}
-	if !strings.Contains(out, "1 violation") {
-		t.Errorf("expected violation count in output, got: %s", out)
+	if !strings.Contains(out, "HOST") {
+		t.Errorf("expected output to contain 'HOST', got: %s", out)
 	}
 }
