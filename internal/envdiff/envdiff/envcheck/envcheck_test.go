@@ -4,63 +4,57 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/user/envdiff/internal/envdiff/envdiff/envcheck"
+	"github.com/your-org/envdiff/internal/envdiff/envdiff/envcheck"
 )
 
 func TestCheck_NoViolations(t *testing.T) {
-	env := map[string]string{"HOST": "localhost", "PORT": "8080"}
+	env := map[string]string{"DB_HOST": "localhost", "DB_PORT": "5432"}
 	rules := []envcheck.Rule{
-		{Key: "HOST", Type: envcheck.RuleRequired},
-		{Key: "PORT", Type: envcheck.RuleNonEmpty},
+		{Key: "DB_HOST", Kind: envcheck.Required},
+		{Key: "DB_PORT", Kind: envcheck.NonEmpty},
 	}
-	vs := envcheck.Check(env, rules)
-	if len(vs) != 0 {
-		t.Fatalf("expected no violations, got %d", len(vs))
+	got := envcheck.Check(env, rules)
+	if len(got) != 0 {
+		t.Fatalf("expected no violations, got %d", len(got))
 	}
 }
 
 func TestCheck_RequiredKeyMissing(t *testing.T) {
-	env := map[string]string{"PORT": "8080"}
-	rules := []envcheck.Rule{
-		{Key: "HOST", Type: envcheck.RuleRequired},
+	env := map[string]string{}
+	rules := []envcheck.Rule{{Key: "API_KEY", Kind: envcheck.Required}}
+	got := envcheck.Check(env, rules)
+	if len(got) != 1 {
+		t.Fatalf("expected 1 violation, got %d", len(got))
 	}
-	vs := envcheck.Check(env, rules)
-	if len(vs) != 1 {
-		t.Fatalf("expected 1 violation, got %d", len(vs))
-	}
-	if vs[0].Key != "HOST" {
-		t.Errorf("expected key HOST, got %s", vs[0].Key)
+	if got[0].Key != "API_KEY" {
+		t.Errorf("unexpected key: %s", got[0].Key)
 	}
 }
 
 func TestCheck_ForbiddenKeyPresent(t *testing.T) {
 	env := map[string]string{"DEBUG": "true"}
-	rules := []envcheck.Rule{
-		{Key: "DEBUG", Type: envcheck.RuleForbidden},
+	rules := []envcheck.Rule{{Key: "DEBUG", Kind: envcheck.Forbidden}}
+	got := envcheck.Check(env, rules)
+	if len(got) != 1 {
+		t.Fatalf("expected 1 violation, got %d", len(got))
 	}
-	vs := envcheck.Check(env, rules)
-	if len(vs) != 1 {
-		t.Fatalf("expected 1 violation, got %d", len(vs))
-	}
-	if vs[0].Rule != envcheck.RuleForbidden {
-		t.Errorf("expected forbidden rule, got %s", vs[0].Rule)
+	if got[0].Kind != envcheck.Forbidden {
+		t.Errorf("expected Forbidden kind, got %s", got[0].Kind)
 	}
 }
 
 func TestCheck_NonEmptyViolation(t *testing.T) {
-	env := map[string]string{"TOKEN": "   "}
-	rules := []envcheck.Rule{
-		{Key: "TOKEN", Type: envcheck.RuleNonEmpty},
-	}
-	vs := envcheck.Check(env, rules)
-	if len(vs) != 1 {
-		t.Fatalf("expected 1 violation, got %d", len(vs))
+	env := map[string]string{"SECRET": "   "}
+	rules := []envcheck.Rule{{Key: "SECRET", Kind: envcheck.NonEmpty}}
+	got := envcheck.Check(env, rules)
+	if len(got) != 1 {
+		t.Fatalf("expected 1 violation, got %d", len(got))
 	}
 }
 
 func TestHasViolations_True(t *testing.T) {
-	vs := []envcheck.Violation{{Key: "X", Rule: envcheck.RuleRequired, Message: "missing"}}
-	if !envcheck.HasViolations(vs) {
+	v := []envcheck.Violation{{Key: "X", Kind: envcheck.Required, Message: "missing"}}
+	if !envcheck.HasViolations(v) {
 		t.Error("expected HasViolations to return true")
 	}
 }
@@ -73,17 +67,21 @@ func TestHasViolations_False(t *testing.T) {
 
 func TestFormatViolations_NoViolations(t *testing.T) {
 	out := envcheck.FormatViolations(nil)
-	if out != "no violations" {
-		t.Errorf("unexpected output: %s", out)
+	if out != "no violations found" {
+		t.Errorf("unexpected output: %q", out)
 	}
 }
 
-func TestFormatViolations_ContainsRuleType(t *testing.T) {
-	vs := []envcheck.Violation{
-		{Key: "HOST", Rule: envcheck.RuleRequired, Message: "required key \"HOST\" is missing"},
+func TestFormatViolations_ContainsMessages(t *testing.T) {
+	v := []envcheck.Violation{
+		{Key: "DB_HOST", Kind: envcheck.Required, Message: `required key "DB_HOST" is missing`},
+		{Key: "DEBUG", Kind: envcheck.Forbidden, Message: `forbidden key "DEBUG" is present`},
 	}
-	out := envcheck.FormatViolations(vs)
+	out := envcheck.FormatViolations(v)
 	if !strings.Contains(out, "required") {
-		t.Errorf("expected output to contain rule type, got: %s", out)
+		t.Error("expected output to contain 'required'")
+	}
+	if !strings.Contains(out, "forbidden") {
+		t.Error("expected output to contain 'forbidden'")
 	}
 }
