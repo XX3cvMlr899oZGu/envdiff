@@ -58,6 +58,12 @@ func TestInfer_String(t *testing.T) {
 	}
 }
 
+func TestInfer_Empty(t *testing.T) {
+	if got := envtype.Infer(""); got != envtype.TypeString {
+		t.Errorf("Infer(\"\") = %q, want string", got)
+	}
+}
+
 func TestInferAll(t *testing.T) {
 	env := map[string]string{
 		"PORT":     "8080",
