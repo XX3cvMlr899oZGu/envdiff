@@ -57,6 +57,20 @@ func TestDetect_IncludeUnchanged(t *testing.T) {
 	}
 }
 
+func TestDetect_EmptyMaps(t *testing.T) {
+	entries := Detect(map[string]string{}, map[string]string{}, DefaultOptions())
+	if len(entries) != 0 {
+		t.Fatalf("expected no drift for two empty maps, got %d entries", len(entries))
+	}
+}
+
+func TestDetect_NilMaps(t *testing.T) {
+	entries := Detect(nil, nil, DefaultOptions())
+	if len(entries) != 0 {
+		t.Fatalf("expected no drift for nil maps, got %d entries", len(entries))
+	}
+}
+
 func TestHasDrift_False(t *testing.T) {
 	if HasDrift(nil) {
 		t.Error("expected no drift for nil entries")
