@@ -62,6 +62,17 @@ func TestRun_DisabledChecks(t *testing.T) {
 	}
 }
 
+func TestRun_MultipleIssues(t *testing.T) {
+	env := map[string]string{
+		"EMPTY_KEY": "",
+		"BAD KEY":   "value",
+	}
+	issues := Run(env, DefaultOptions())
+	if len(issues) != 2 {
+		t.Fatalf("expected 2 issues, got %d", len(issues))
+	}
+}
+
 func TestFormatIssues_Empty(t *testing.T) {
 	out := FormatIssues(nil)
 	if out != "no lint issues found" {
